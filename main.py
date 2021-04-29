@@ -1,4 +1,5 @@
 import multiprocessing
+from functools import partial
 from math import floor, sqrt
 import pandas as pd
 import numpy as np
@@ -58,9 +59,9 @@ def get_neighbors(samplePMData, county_row):
     return neighbors
 
 
-def interpolate():
+def interpolate(training_set, test_row):
     w = 0
-    nearest_neighbors = get_neighbors(training_set, test_set[row])
+    nearest_neighbors = get_neighbors(training_set, test_row)
     for neighbor in nearest_neighbors:
         lambdai = get_lambdai(neighbor, nearest_neighbors)
         wi = neighbor[3]
@@ -106,11 +107,15 @@ if __name__ == '__main__':
 
         test_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/st_test.txt')
         test_set = to_array(test_set)
+        size = floor(len(test_set) / 4)
+        print("size: " + str(size))
 
         for row in range(len(test_set)):
-
-            interpolation = interpolate()
+            temp = partial(interpolate, training_set)
+            interpolation = pool.map(func=temp, iterable=test_set, chunksize=size)
             print(interpolation)
+
+    pool.close()
 
         # error validation
         # validation_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/value_test.txt')
