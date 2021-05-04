@@ -1,26 +1,27 @@
 import multiprocessing
+import numpy as np
+import pandas as pd
+
 from functools import partial
 from math import floor, sqrt
-import pandas as pd
-import numpy as np
-
-num_neighbors = 3
-exponent = 2
 
 
-# def get_sample_time(time):
-#     monthday = time
-#     month = int(floor(monthday * 10**-2))
-#     day = monthday - month * 10**2
-#     months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-#     new_time = 0
-#     for i in range(month-1):
-#         new_time += months[i]
-#     new_time += day
-#     return new_time
+def write_mape(mape, file_names, count):
+    with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'w') as f:
+        f.write(str(mape))
+        print(str(mape))
+    f.close()
 
 
-def get_lambdai(neighbor, nearest_neighbors):
+def write_w(interpolation, file_names, count):
+    with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'w') as f:
+        f.write(str(interpolation))
+        f.write('\n')
+        print(str(interpolation))
+    f.close()
+
+
+def get_lambdai(neighbor, nearest_neighbors, exponent):
     denominator_sum = 0
     distancei = neighbor[-1]
     numerator = (1/distancei)**exponent
@@ -43,7 +44,7 @@ def euclidean_distance(sample_row, county_row):
     return sqrt(euclidean_sum)
 
 
-def get_neighbors(samplePMData, county_row):
+def get_neighbors(samplePMData, county_row, num_neighbors):
     flattened_distances_list = list()
     for row in range(len(samplePMData)):
         flattened_distances = list()
@@ -59,15 +60,14 @@ def get_neighbors(samplePMData, county_row):
     return neighbors
 
 
-def interpolate(training_set, test_row):
+def interpolate(training_set, n, p, file_names, count, test_row):
     w = 0
-    nearest_neighbors = get_neighbors(training_set, test_row)
+    nearest_neighbors = get_neighbors(training_set, test_row, n)
     for neighbor in nearest_neighbors:
-        lambdai = get_lambdai(neighbor, nearest_neighbors)
+        lambdai = get_lambdai(neighbor, nearest_neighbors, p)
         wi = neighbor[3]
-        print(wi)
         w += wi * lambdai
-    return w
+    write_w(w, file_names, count)
 
 
 def import_data(pm_filename):
@@ -81,6 +81,8 @@ def to_array(dataframe):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    num_neighbors = int(input("For how many nearest neighbors would you like to interpolate? "))
+    exponent = float(input("Enter a float to use as an exponent in the weighting process: "))
     fold_file_names = [
         "fold1",
         "fold2",
@@ -97,7 +99,7 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(4)
 
     for i in range(0, 10):
-        # numerator = 0
+        mape_numerator = 0
 
         # Import data
         training_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/st_sample.txt')
@@ -107,20 +109,15 @@ if __name__ == '__main__':
 
         test_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/st_test.txt')
         test_set = to_array(test_set)
-        size = floor(len(test_set) / 4)
-        print("size: " + str(size))
+        size = floor(len(test_set)/4)
 
-        for row in range(len(test_set)):
-            temp = partial(interpolate, training_set)
-            interpolation = pool.map(func=temp, iterable=test_set, chunksize=size)
-            print(interpolation)
+        validation_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/value_test.txt')
+        validation_set = to_array(validation_set)
 
-    pool.close()
-
-        # error validation
-        # validation_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/value_test.txt')
-        # validation_set = to_array(validation_set)
-        # numerator += (abs(interpolation - validation_set[row][0]) * 100) / interpolation
-        # denominator = len(validation_set)
-        # mape = numerator/denominator
-        # print("mean absolute percentage error: " + str(mape) + "%")
+        temp = partial(interpolate, training_set, num_neighbors, exponent, fold_file_names, i)
+        interpolations = pool.map(func=temp, iterable=test_set, chunksize=size)
+        for j in range(len(interpolations)):
+            mape_numerator += (interpolations[j]-validation_set[j][0])/interpolations[j]
+        mape = mape_numerator/len(interpolations)
+        write_mape(mape, fold_file_names, i)
+        pool.close()
