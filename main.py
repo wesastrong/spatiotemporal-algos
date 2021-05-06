@@ -6,15 +6,15 @@ from functools import partial
 from math import floor, sqrt
 
 
-def write_mape(mape, file_names, count):
-    with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'w') as f:
-        f.write(str(mape))
-        print(str(mape))
-    f.close()
+# def write_mape(mape, file_names, count):
+#     with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'a') as f:
+#         f.write(str(mape))
+#         print(str(mape))
+#     f.close()
 
 
 def write_w(interpolation, file_names, count):
-    with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'w') as f:
+    with open('10FoldCrossValidation/' + file_names[count] + '/10foldcv_sf' + file_names[count] + '.txt', 'a') as f:
         f.write(str(interpolation))
         f.write('\n')
         print(str(interpolation))
@@ -96,10 +96,8 @@ if __name__ == '__main__':
         "fold10"
     ]
 
-    pool = multiprocessing.Pool(4)
-
     for i in range(0, 10):
-        mape_numerator = 0
+        pool = multiprocessing.Pool(4)
 
         # Import data
         training_set = import_data('10FoldCrossValidation/'+fold_file_names[i]+'/st_sample.txt')
@@ -116,8 +114,5 @@ if __name__ == '__main__':
 
         temp = partial(interpolate, training_set, num_neighbors, exponent, fold_file_names, i)
         interpolations = pool.map(func=temp, iterable=test_set, chunksize=size)
-        for j in range(len(interpolations)):
-            mape_numerator += (interpolations[j]-validation_set[j][0])/interpolations[j]
-        mape = mape_numerator/len(interpolations)
-        write_mape(mape, fold_file_names, i)
+
         pool.close()
